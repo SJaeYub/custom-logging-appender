@@ -91,14 +91,12 @@ public class SizeRollingFileAppender extends FileAppender {
     }
 
     private synchronized void rollOverTime() {
-        String datedFilename = generateFilename(now);
-        if (!scheduledFilename.equals(datedFilename)) {
+        String newFilename = generateFilename(now);
+        if (!scheduledFilename.equals(newFilename)) {
             closeFile();
-            File target = new File(scheduledFilename);
-            if (target.exists()) {
-                target.renameTo(new File(generateBackupFilename(scheduledFilename, 1)));
-            }
-            scheduledFilename = datedFilename;
+
+            // 기존 파일을 백업하지 않고, 새로운 파일을 생성
+            scheduledFilename = newFilename;
             try {
                 setFile(scheduledFilename, false, bufferedIO, bufferSize);
             } catch (IOException e) {
