@@ -120,11 +120,19 @@ public class SizeRollingFileAppender extends FileAppender {
 
         // 최대 인덱스를 초과하면 가장 오래된 백업 파일 삭제
         if (nextIndex > maxBackupIndex) {
-            File oldestBackup = new File(generateBackupFilename(scheduledFilename, 1));
+            // 기존 백업 파일의 인덱스를 순차적으로 증가시키고, 가장 오래된 파일 삭제
+            for (int i = maxBackupIndex; i > 1; i--) {
+                File file = new File(generateBackupFilename(scheduledFilename, i));
+                if (file.exists()) {
+                    File target = new File(generateBackupFilename(scheduledFilename, i + 1));
+                    file.renameTo(target);
+                }
+            }
+            File oldestBackup = new File(generateBackupFilename(scheduledFilename, 2));
             if (oldestBackup.exists()) {
                 oldestBackup.delete();
             }
-            nextIndex = 1;
+            nextIndex = 2;
         }
 
         // Rename the current log file to the next available index
