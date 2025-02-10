@@ -113,17 +113,24 @@ public class SizeRollingFileAppender extends FileAppender {
 
         closeFile();
 
-        // 기존 백업 파일 이름 변경
-        for (int i = maxBackupIndex - 1; i > 0; i--) {
-            File file = new File(generateBackupFilename(scheduledFilename, i));
-            if (file.exists()) {
-                File target = new File(generateBackupFilename(scheduledFilename, i + 1));
-                file.renameTo(target);
-            }
+        // Find the next available index for the backup file
+        int nextIndex = 1;
+        File existingBackup;
+        while ((existingBackup = new File(generateBackupFilename(scheduledFilename, nextIndex))).exists()) {
+            nextIndex++;
         }
 
-        // 현재 로그 파일을 백업 파일로 이름 변경
-        File target = new File(generateBackupFilename(scheduledFilename, 1));
+        // 최대 인덱스를 초과하면 가장 오래된 백업 파일 삭제
+        if (nextIndex > maxBackupIndex) {
+            File oldestBackup = new File(generateBackupFilename(scheduledFilename, 1));
+            if (oldestBackup.exists()) {
+                oldestBackup.delete();
+            }
+            nextIndex = 1;
+        }
+
+        // Rename the current log file to the next available index
+        File target = new File(generateBackupFilename(scheduledFilename, nextIndex));
         File file = new File(scheduledFilename);
         boolean renameSucceeded = file.renameTo(target);
 

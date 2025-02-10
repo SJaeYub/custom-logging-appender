@@ -15,7 +15,7 @@
         <param name="File" value="logs/myapp.log" />
 
         <!-- 최대 파일 크기 -->
-        <param name="MaxFileSize" value="10MB" />
+        <param name="MaxFileSize" value="5MB" />
 
         <!-- 백업 파일 최대 개수 -->
         <param name="MaxBackupIndex" value="1" />
