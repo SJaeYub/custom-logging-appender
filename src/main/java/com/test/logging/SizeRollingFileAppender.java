@@ -14,7 +14,7 @@ import java.util.Calendar;
 public class SizeRollingFileAppender extends FileAppender {
 
     private long maxFileSize = 10 * 1024 * 1024; // 기본 최대 파일 크기: 10MB
-    private int maxBackupIndex = 1; // 기본 백업 파일 수
+    private int maxBackupIndex = 5; // 기본 백업 파일 수
     private String datePattern = "'_'yyyyMMdd_HH"; // 기본 날짜 패턴
     private SimpleDateFormat sdf;
     private String scheduledFilename;
@@ -118,9 +118,9 @@ public class SizeRollingFileAppender extends FileAppender {
             nextIndex++;
         }
 
-        // 최대 인덱스를 초과하면 가장 오래된 백업 파일 삭제
+        // 최대 인덱스를 초과하면 기존 백업 파일의 인덱스를 증가시키고, 가장 오래된 파일 삭제
         if (nextIndex > maxBackupIndex) {
-            // 기존 백업 파일의 인덱스를 순차적으로 증가시키고, 가장 오래된 파일 삭제
+            // 기존 백업 파일의 인덱스를 1씩 증가시키고, 가장 오래된 파일 삭제
             for (int i = maxBackupIndex; i > 1; i--) {
                 File file = new File(generateBackupFilename(scheduledFilename, i));
                 if (file.exists()) {
@@ -130,9 +130,11 @@ public class SizeRollingFileAppender extends FileAppender {
             }
             File oldestBackup = new File(generateBackupFilename(scheduledFilename, 2));
             if (oldestBackup.exists()) {
-                oldestBackup.delete();
+                File target = new File(generateBackupFilename(scheduledFilename, maxBackupIndex + 1));
+                oldestBackup.renameTo(target);
+                target.delete(); // 실제로 삭제
             }
-            nextIndex = 2;
+            nextIndex = 1;
         }
 
         // Rename the current log file to the next available index
