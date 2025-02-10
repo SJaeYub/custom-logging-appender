@@ -18,7 +18,6 @@ public class SizeRollingFileAppender extends FileAppender {
     private String datePattern = "'_'yyyyMMdd_HH"; // 기본 날짜 패턴
     private SimpleDateFormat sdf;
     private String scheduledFilename;
-    private boolean isSysErr = false;
     private long nextRollover = 0;
     private Date now = new Date();
     private Date nextCheck = new Date();
@@ -47,7 +46,6 @@ public class SizeRollingFileAppender extends FileAppender {
     public void setFile(String file) {
         this.originalFileName = file;
         this.fileName = file;  // 원본 파일 이름 유지
-        isSysErr = file.contains(".syserr");
     }
 
     @Override
@@ -148,12 +146,11 @@ public class SizeRollingFileAppender extends FileAppender {
 
     private String generateFilename(Date date) {
         String baseFilename = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-        return baseFilename + sdf.format(date) + (isSysErr ? ".syserr.log" : ".log");
+        return baseFilename + sdf.format(date) + ".log";
     }
 
     private String generateBackupFilename(String baseFilename, int index) {
-        return baseFilename.substring(0, baseFilename.lastIndexOf('.')) + "." + index +
-                (isSysErr ? ".syserr.log" : ".log");
+        return baseFilename.substring(0, baseFilename.lastIndexOf('.')) + "." + index + ".log";
     }
 
     private class RollingCalendar extends Calendar {
