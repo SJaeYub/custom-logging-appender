@@ -98,7 +98,27 @@ public class SizeRollingFileAppender extends FileAppender {
         if (!scheduledFilename.equals(newFilename)) {
             closeFile();
 
-            // 기존 파일을 백업하지 않고, 새로운 파일을 생성
+            // 기존 파일을 백업하고, 새로운 파일을 생성
+            File file = new File(scheduledFilename);
+            if (file.exists()) {
+                String backupFilename = generateBackupFilenameForTimeChange(scheduledFilename, 1);
+                File backupFile = new File(backupFilename);
+                boolean renameSucceeded = file.renameTo(backupFile);
+                if (!renameSucceeded) {
+                    LogLog.warn("Failed to rename [" + scheduledFilename + "] to [" + backupFile.getPath() + "].");
+                }
+            }
+
+            // 기존 백업 파일의 이름을 변경
+            for (int i = maxBackupIndex; i > 0; i--) {
+                File existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i));
+                if (existingBackup.exists()) {
+                    String newBackupFilename = generateBackupFilenameForTimeChange(scheduledFilename, i);
+                    File newBackupFile = new File(newBackupFilename);
+                    existingBackup.renameTo(newBackupFile);
+                }
+            }
+
             scheduledFilename = newFilename;
             try {
                 setFile(scheduledFilename, false, bufferedIO, bufferSize);
@@ -121,23 +141,6 @@ public class SizeRollingFileAppender extends FileAppender {
         File existingBackup;
         while ((existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex))).exists()) {
             nextIndex++;
-        }
-
-        // 최대 인덱스를 초과하면 기존 백업 파일의 인덱스를 증가시키고, 가장 오래된 파일 삭제
-        if (nextIndex > maxBackupIndex) {
-            // 기존 백업 파일의 인덱스를 1씩 증가시키고, 가장 오래된 파일 삭제
-            for (int i = maxBackupIndex; i > 1; i--) {
-                File file = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i));
-                if (file.exists()) {
-                    File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i + 1));
-                    file.renameTo(target);
-                }
-            }
-            File oldestBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, 2));
-            if (oldestBackup.exists()) {
-                oldestBackup.delete();
-            }
-            nextIndex = 2;
         }
 
         // Rename the current log file to the next available index
