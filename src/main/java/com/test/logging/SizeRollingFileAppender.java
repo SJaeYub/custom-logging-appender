@@ -1,238 +1,176 @@
 package com.test.logging;
 
-import org.apache.log4j.FileAppender;
+import org.apache.log4j.AppenderSkeleton;
+import org.apache.log4j.Layout;
 import org.apache.log4j.helpers.LogLog;
-import org.apache.log4j.helpers.OptionConverter;
 import org.apache.log4j.spi.LoggingEvent;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Calendar;
 
-public class SizeRollingFileAppender extends FileAppender {
+public class SizeRollingFileAppender extends AppenderSkeleton {
 
-    private long maxFileSize = 10 * 1024 * 1024; // 기본 최대 파일 크기: 10MB
-    private int maxBackupIndex = 5; // 기본 백업 파일 수
-    private String datePattern = "'_'yyyyMMdd_HH"; // 기본 날짜 패턴
-    private String currentFilePattern = "'_'yyyyMMdd"; // 현재 로그 파일 날짜 패턴
-    private SimpleDateFormat sdf;
-    private SimpleDateFormat currentSdf;
-    private SimpleDateFormat sizeExceededSdf; // maxSize 초과 시 사용할 포맷
-    private String scheduledFilename;
-    private long nextRollover = 0;
-    private Date now = new Date();
-    private Date nextCheck = new Date();
-    private RollingCalendar rc = new RollingCalendar();
-    private String originalFileName;
+    private String fileName;
+    private String datePattern;
+    private long maxFileSize;
+    private int maxBackupIndex;
+    private boolean append = true;
+    private FileWriter writer;
+    private long nextRolloverTime = 0; // HH 단위 롤오버 시간
 
-    public SizeRollingFileAppender() {
-        super();
+    public SizeRollingFileAppender() {}
+
+    public void setFile(String fileName) {
+        this.fileName = fileName;
     }
 
-    public void setMaxFileSize(String value) {
-        maxFileSize = OptionConverter.toFileSize(value, maxFileSize + 1);
-        nextRollover = maxFileSize;
+    public void setMaxFileSize(String maxFileSizeStr) {
+        this.maxFileSize = parseFileSize(maxFileSizeStr);
     }
 
-    public void setMaxBackupIndex(int maxBackups) {
-        this.maxBackupIndex = maxBackups;
+    public void setMaxBackupIndex(int maxBackupIndex) {
+        this.maxBackupIndex = maxBackupIndex;
     }
 
-    public void setDatePattern(String pattern) {
-        datePattern = pattern;
-        rc.setDatePattern(datePattern);
+    public void setDatePattern(String datePattern) {
+        this.datePattern = datePattern;
     }
 
-    @Override
-    public void setFile(String file) {
-        this.originalFileName = file;
-        this.fileName = file;  // 원본 파일 이름 유지
+    private long parseFileSize(String fileSizeStr) {
+        fileSizeStr = fileSizeStr.trim().toLowerCase();
+        long fileSize = 0;
+        if (fileSizeStr.endsWith("kb")) {
+            fileSize = Long.parseLong(fileSizeStr.substring(0, fileSizeStr.length() - 2)) * 1024;
+        } else if (fileSizeStr.endsWith("mb")) {
+            fileSize = Long.parseLong(fileSizeStr.substring(0, fileSizeStr.length() - 2)) * 1024 * 1024;
+        } else if (fileSizeStr.endsWith("gb")) {
+            fileSize = Long.parseLong(fileSizeStr.substring(0, fileSizeStr.length() - 2)) * 1024 * 1024 * 1024;
+        } else {
+            fileSize = Long.parseLong(fileSizeStr);
+        }
+        return fileSize;
     }
 
     @Override
     public void activateOptions() {
-        if (originalFileName != null) {
-            try {
-                now = new Date();
-                sdf = new SimpleDateFormat(datePattern);
-                currentSdf = new SimpleDateFormat(currentFilePattern);
-                sizeExceededSdf = new SimpleDateFormat("yyyyMMdd"); // maxSize 초과 시 YYYYMMDD 포맷
-                rc.setDatePattern(datePattern);
-                scheduledFilename = generateCurrentFilename(now);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        String currentDate = sdf.format(new Date(System.currentTimeMillis()));
+        String instanceName = fileName.substring(0, fileName.lastIndexOf('.'));
+        String newFileName = instanceName + "_" + currentDate + ".log";
+        try {
+            setFile(newFileName, append, false, 8192);
+        } catch (IOException e) {
+            LogLog.error("Error setting file.", e);
+        }
+    }
 
-                // 실제 파일 생성
-                setFile(scheduledFilename, false, bufferedIO, bufferSize);
 
-                nextCheck = rc.getNextCheckDate(now);
-                nextRollover = maxFileSize;
-            } catch (IOException e) {
-                LogLog.error("Failed to create log file: " + scheduledFilename, e);
-                throw new RuntimeException("Failed to create log file", e);
+    public void setFile(String fileName, boolean append, boolean bufferedIO, int bufferSize) throws IOException {
+        if (writer != null) {
+            writer.close();
+        }
+        File file = new File(fileName);
+        if (!append) {
+            if (file.exists()) {
+                file.delete();
             }
         }
-        super.activateOptions();
+        writer = new FileWriter(file, append);
     }
 
     @Override
-    protected void subAppend(LoggingEvent event) {
-        long n = System.currentTimeMillis();
-        if (n >= nextCheck.getTime()) {
-            now = new Date(n);
-            nextCheck = rc.getNextCheckDate(now);
-            rollOverTime();
-        }
-
-        super.subAppend(event);
-        if (fileName != null && qw != null) {
-            long size = ((File) new File(fileName)).length();
-            if (size >= nextRollover) {
-                rollOverSize();
-            }
-        }
-    }
-
-    private synchronized void rollOverTime() {
-        String newFilename = generateCurrentFilename(now);
-        if (!scheduledFilename.equals(newFilename)) {
-            closeFile();
-
-            // 기존 파일을 백업하고, 새로운 파일을 생성
-            File file = new File(scheduledFilename);
-            if (file.exists()) {
-                String backupFilename = generateBackupFilenameForTimeChange(scheduledFilename, 1);
-                File backupFile = new File(backupFilename);
-                boolean renameSucceeded = file.renameTo(backupFile);
-                if (!renameSucceeded) {
-                    LogLog.warn("Failed to rename [" + scheduledFilename + "] to [" + backupFile.getPath() + "].");
-                }
-            }
-
-            // 기존 백업 파일의 이름을 변경
-            for (int i = maxBackupIndex; i > 0; i--) {
-                File existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i));
-                if (existingBackup.exists()) {
-                    String newBackupFilename = generateBackupFilenameForTimeChange(scheduledFilename, i);
-                    File newBackupFile = new File(newBackupFilename);
-                    existingBackup.renameTo(newBackupFile);
-                }
-            }
-
-            scheduledFilename = newFilename;
-            try {
-                setFile(scheduledFilename, false, bufferedIO, bufferSize);
-            } catch (IOException e) {
-                LogLog.error("setFile(" + scheduledFilename + ", false) call failed.", e);
-            }
-        }
-    }
-
-    private synchronized void rollOverSize() {
-        if (qw == null) {
-            LogLog.warn("No output stream. Rollover failed.");
+    protected void append(LoggingEvent event) {
+        if (writer == null) {
+            LogLog.error("Output stream not set.");
             return;
         }
 
-        closeFile();
-
-        // Find the next available index for the backup file
-        int nextIndex = 1;
-        File existingBackup;
-        while ((existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex))).exists()) {
-            nextIndex++;
+        // 파일 크기 체크
+        if (new File(fileName).length() >= maxFileSize) {
+            rollOver();
         }
 
-        // Rename the current log file to the next available index
-        File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex));
-        File file = new File(scheduledFilename);
-        boolean renameSucceeded = file.renameTo(target);
+        // 시간 체크
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+        String currentDate = sdf.format(new Date(System.currentTimeMillis()));
 
-        if (!renameSucceeded) {
-            LogLog.warn("Failed to rename [" + scheduledFilename + "] to [" + target.getPath() + "].");
+        // 파일 이름 형식 체크
+        if (fileName.contains("_")) {
+            String instanceName = fileName.substring(0, fileName.indexOf('_'));
+            if (!currentDate.equals(fileName.substring(instanceName.length() + 1, instanceName.length() + 9))) {
+                rollOver();
+            }
+        } else {
+            LogLog.error("Invalid file name format.");
         }
 
         try {
-            setFile(scheduledFilename, false, bufferedIO, bufferSize);
+            writer.write(this.layout.format(event));
+            writer.flush();
         } catch (IOException e) {
-            LogLog.error("setFile(" + scheduledFilename + ", false) call failed.", e);
+            LogLog.error("Error writing to file.", e);
         }
-        nextRollover = maxFileSize;
     }
 
-    private String generateCurrentFilename(Date date) {
-        String baseFilename = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-        return baseFilename + currentSdf.format(date) + ".log";
-    }
 
-    private String generateBackupFilenameForSizeExceeded(String baseFilename, int index) {
-        String backupDate = sizeExceededSdf.format(now);
-        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + backupDate + "." + index + ".log";
-    }
 
-    private String generateBackupFilenameForTimeChange(String baseFilename, int index) {
-        String backupDate = sdf.format(now);
-        String[] parts = backupDate.split("_");
-        String datePart = parts[0];
-        String timePart = parts[1];
-        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + datePart + "_" + timePart + "." + index + ".log";
-    }
-
-    private class RollingCalendar extends Calendar {
-        private SimpleDateFormat sdf;
-
-        RollingCalendar() {
-            super();
+    private void rollOver() {
+        try {
+            writer.close();
+        } catch (IOException e) {
+            LogLog.error("Error closing file.", e);
         }
 
-        void setDatePattern(String pattern) {
-            sdf = new SimpleDateFormat(pattern);
+        // 파일 이름 생성
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HH");
+        String newFileName = sdf.format(new Date(System.currentTimeMillis()));
+        String instanceName = fileName.substring(0, fileName.lastIndexOf('_'));
+        newFileName = instanceName + "_" + newFileName + ".log";
+
+        // 파일 이름에 인덱스 추가
+        int idx = 1;
+        while (new File(newFileName + "." + idx).exists()) {
+            idx++;
+        }
+        if (idx > 1) {
+            newFileName += "." + idx;
         }
 
-        public Date getNextCheckDate(Date now) {
-            if (sdf.toPattern().contains("HH")) {
-                return getNextDateAtHour(now);
-            } else {
-                return getNextDateAtMidnight(now);
+        // 파일 복사
+        File srcFile = new File(fileName);
+        File destFile = new File(newFileName);
+        if (!srcFile.renameTo(destFile)) {
+            LogLog.error("Failed to rename file.");
+        }
+
+        // 새로운 파일 열기
+        SimpleDateFormat newSdf = new SimpleDateFormat("yyyyMMdd");
+        String newCurrentDate = newSdf.format(new Date(System.currentTimeMillis()));
+        String newFileNameForNewFile = instanceName + "_" + newCurrentDate + ".log";
+        try {
+            setFile(newFileNameForNewFile, append, false, 8192);
+        } catch (IOException e) {
+            LogLog.error("Error opening new file.", e);
+        }
+    }
+
+
+    @Override
+    public void close() {
+        if (writer != null) {
+            try {
+                writer.close();
+            } catch (IOException e) {
+                LogLog.error("Error closing file.", e);
             }
         }
+    }
 
-        private Date getNextDateAtMidnight(Date now) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(now);
-            cal.set(Calendar.HOUR_OF_DAY, 0);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            cal.add(Calendar.DATE, 1);
-            return cal.getTime();
-        }
-
-        private Date getNextDateAtHour(Date now) {
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(now);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            cal.add(Calendar.HOUR_OF_DAY, 1);
-            return cal.getTime();
-        }
-
-        @Override
-        protected void computeTime() {}
-        @Override
-        protected void computeFields() {}
-        @Override
-        public void add(int field, int amount) {}
-        @Override
-        public void roll(int field, boolean up) {}
-        @Override
-        public int getMinimum(int field) { return 0; }
-        @Override
-        public int getMaximum(int field) { return 0; }
-        @Override
-        public int getGreatestMinimum(int field) { return 0; }
-        @Override
-        public int getLeastMaximum(int field) { return 0; }
+    @Override
+    public boolean requiresLayout() {
+        return true;
     }
 }
