@@ -139,12 +139,12 @@ public class SizeRollingFileAppender extends FileAppender {
         // Find the next available index for the backup file
         int nextIndex = 1;
         File existingBackup;
-        while ((existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex))).exists()) {
+        while ((existingBackup = new File(generateBackupFilenameForTimeChange(scheduledFilename, nextIndex))).exists()) {
             nextIndex++;
         }
 
         // Rename the current log file to the next available index
-        File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex));
+        File target = new File(generateBackupFilenameForTimeChange(scheduledFilename, nextIndex));
         File file = new File(scheduledFilename);
         boolean renameSucceeded = file.renameTo(target);
 
