@@ -16,7 +16,9 @@ public class SizeRollingFileAppender extends FileAppender {
     private long maxFileSize = 10 * 1024 * 1024; // 기본 최대 파일 크기: 10MB
     private int maxBackupIndex = 5; // 기본 백업 파일 수
     private String datePattern = "'_'yyyyMMdd_HH"; // 기본 날짜 패턴
+    private String currentFilePattern = "'_'yyyyMMdd"; // 현재 로그 파일 날짜 패턴
     private SimpleDateFormat sdf;
+    private SimpleDateFormat currentSdf;
     private String scheduledFilename;
     private long nextRollover = 0;
     private Date now = new Date();
@@ -54,8 +56,9 @@ public class SizeRollingFileAppender extends FileAppender {
             try {
                 now = new Date();
                 sdf = new SimpleDateFormat(datePattern);
+                currentSdf = new SimpleDateFormat(currentFilePattern);
                 rc.setDatePattern(datePattern);
-                scheduledFilename = generateFilename(now);
+                scheduledFilename = generateCurrentFilename(now);
 
                 // 실제 파일 생성
                 setFile(scheduledFilename, false, bufferedIO, bufferSize);
@@ -89,7 +92,7 @@ public class SizeRollingFileAppender extends FileAppender {
     }
 
     private synchronized void rollOverTime() {
-        String newFilename = generateFilename(now);
+        String newFilename = generateCurrentFilename(now);
         if (!scheduledFilename.equals(newFilename)) {
             closeFile();
 
@@ -130,11 +133,9 @@ public class SizeRollingFileAppender extends FileAppender {
             }
             File oldestBackup = new File(generateBackupFilename(scheduledFilename, 2));
             if (oldestBackup.exists()) {
-                File target = new File(generateBackupFilename(scheduledFilename, maxBackupIndex + 1));
-                oldestBackup.renameTo(target);
-                target.delete(); // 실제로 삭제
+                oldestBackup.delete();
             }
-            nextIndex = 1;
+            nextIndex = 2;
         }
 
         // Rename the current log file to the next available index
@@ -154,13 +155,22 @@ public class SizeRollingFileAppender extends FileAppender {
         nextRollover = maxFileSize;
     }
 
-    private String generateFilename(Date date) {
+    private String generateCurrentFilename(Date date) {
         String baseFilename = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-        return baseFilename + sdf.format(date) + ".log";
+        return baseFilename + currentSdf.format(date) + ".log";
     }
 
     private String generateBackupFilename(String baseFilename, int index) {
-        return baseFilename.substring(0, baseFilename.lastIndexOf('.')) + "." + index + ".log";
+        String backupBase = baseFilename.substring(0, baseFilename.lastIndexOf('_'));
+        String backupDate = baseFilename.substring(baseFilename.lastIndexOf('_') + 1, baseFilename.lastIndexOf('.'));
+        String backupTime = "";
+        if (backupDate.length() == 8) { // YYYYMMDD 형식
+            backupTime = "00";
+        } else if (backupDate.length() == 12) { // YYYYMMDD_HH 형식
+            backupTime = backupDate.substring(8);
+            backupDate = backupDate.substring(0, 8);
+        }
+        return backupBase + "_" + backupDate + "_" + backupTime + "." + index + ".log";
     }
 
     private class RollingCalendar extends Calendar {
