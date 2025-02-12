@@ -139,12 +139,12 @@ public class SizeRollingFileAppender extends FileAppender {
         // Find the next available index for the backup file
         int nextIndex = 1;
         File existingBackup;
-        while ((existingBackup = new File(generateBackupFilenameForTimeChange(scheduledFilename, nextIndex))).exists()) {
+        while ((existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex))).exists()) {
             nextIndex++;
         }
 
         // Rename the current log file to the next available index
-        File target = new File(generateBackupFilenameForTimeChange(scheduledFilename, nextIndex));
+        File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex));
         File file = new File(scheduledFilename);
         boolean renameSucceeded = file.renameTo(target);
 
@@ -172,7 +172,10 @@ public class SizeRollingFileAppender extends FileAppender {
 
     private String generateBackupFilenameForTimeChange(String baseFilename, int index) {
         String backupDate = sdf.format(now);
-        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + backupDate + "." + index + ".log";
+        String[] parts = backupDate.split("_");
+        String datePart = parts[0];
+        String timePart = parts[1];
+        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + datePart + "_" + timePart + "." + index + ".log";
     }
 
     private class RollingCalendar extends Calendar {
