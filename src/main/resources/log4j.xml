@@ -15,10 +15,10 @@
         <param name="File" value="logs/myapp.log" />
 
         <!-- 최대 파일 크기 -->
-        <param name="MaxFileSize" value="5MB" />
+        <param name="MaxFileSize" value="100MB" />
 
         <!-- 백업 파일 최대 개수 -->
-        <param name="MaxBackupIndex" value="1" />
+        <param name="MaxBackupIndex" value="3" />
 
         <!-- 날짜 패턴 -->
         <param name="DatePattern" value="'_'yyyyMMdd_HH" />

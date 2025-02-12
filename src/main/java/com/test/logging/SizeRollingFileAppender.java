@@ -19,6 +19,7 @@ public class SizeRollingFileAppender extends FileAppender {
     private String currentFilePattern = "'_'yyyyMMdd"; // 현재 로그 파일 날짜 패턴
     private SimpleDateFormat sdf;
     private SimpleDateFormat currentSdf;
+    private SimpleDateFormat sizeExceededSdf; // maxSize 초과 시 사용할 포맷
     private String scheduledFilename;
     private long nextRollover = 0;
     private Date now = new Date();
@@ -57,6 +58,7 @@ public class SizeRollingFileAppender extends FileAppender {
                 now = new Date();
                 sdf = new SimpleDateFormat(datePattern);
                 currentSdf = new SimpleDateFormat(currentFilePattern);
+                sizeExceededSdf = new SimpleDateFormat("yyyyMMdd"); // maxSize 초과 시 YYYYMMDD 포맷
                 rc.setDatePattern(datePattern);
                 scheduledFilename = generateCurrentFilename(now);
 
@@ -117,7 +119,7 @@ public class SizeRollingFileAppender extends FileAppender {
         // Find the next available index for the backup file
         int nextIndex = 1;
         File existingBackup;
-        while ((existingBackup = new File(generateBackupFilename(scheduledFilename, nextIndex))).exists()) {
+        while ((existingBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex))).exists()) {
             nextIndex++;
         }
 
@@ -125,13 +127,13 @@ public class SizeRollingFileAppender extends FileAppender {
         if (nextIndex > maxBackupIndex) {
             // 기존 백업 파일의 인덱스를 1씩 증가시키고, 가장 오래된 파일 삭제
             for (int i = maxBackupIndex; i > 1; i--) {
-                File file = new File(generateBackupFilename(scheduledFilename, i));
+                File file = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i));
                 if (file.exists()) {
-                    File target = new File(generateBackupFilename(scheduledFilename, i + 1));
+                    File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, i + 1));
                     file.renameTo(target);
                 }
             }
-            File oldestBackup = new File(generateBackupFilename(scheduledFilename, 2));
+            File oldestBackup = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, 2));
             if (oldestBackup.exists()) {
                 oldestBackup.delete();
             }
@@ -139,7 +141,7 @@ public class SizeRollingFileAppender extends FileAppender {
         }
 
         // Rename the current log file to the next available index
-        File target = new File(generateBackupFilename(scheduledFilename, nextIndex));
+        File target = new File(generateBackupFilenameForSizeExceeded(scheduledFilename, nextIndex));
         File file = new File(scheduledFilename);
         boolean renameSucceeded = file.renameTo(target);
 
@@ -160,17 +162,14 @@ public class SizeRollingFileAppender extends FileAppender {
         return baseFilename + currentSdf.format(date) + ".log";
     }
 
-    private String generateBackupFilename(String baseFilename, int index) {
-        String backupBase = baseFilename.substring(0, baseFilename.lastIndexOf('_'));
-        String backupDate = baseFilename.substring(baseFilename.lastIndexOf('_') + 1, baseFilename.lastIndexOf('.'));
-        String backupTime = "";
-        if (backupDate.length() == 8) { // YYYYMMDD 형식
-            backupTime = "00";
-        } else if (backupDate.length() == 12) { // YYYYMMDD_HH 형식
-            backupTime = backupDate.substring(8);
-            backupDate = backupDate.substring(0, 8);
-        }
-        return backupBase + "_" + backupDate + "_" + backupTime + "." + index + ".log";
+    private String generateBackupFilenameForSizeExceeded(String baseFilename, int index) {
+        String backupDate = sizeExceededSdf.format(now);
+        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + backupDate + "." + index + ".log";
+    }
+
+    private String generateBackupFilenameForTimeChange(String baseFilename, int index) {
+        String backupDate = sdf.format(now);
+        return baseFilename.substring(0, baseFilename.lastIndexOf('_')) + "_" + backupDate + "." + index + ".log";
     }
 
     private class RollingCalendar extends Calendar {
