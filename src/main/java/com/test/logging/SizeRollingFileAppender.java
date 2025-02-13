@@ -4,6 +4,8 @@ import org.apache.log4j.FileAppender;
 import org.apache.log4j.helpers.LogLog;
 import org.apache.log4j.helpers.OptionConverter;
 import org.apache.log4j.spi.LoggingEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,6 +15,7 @@ import java.util.Calendar;
 
 public class SizeRollingFileAppender extends FileAppender {
 
+    private static final Logger log = LoggerFactory.getLogger(SizeRollingFileAppender.class);
     private long maxFileSize = 10 * 1024 * 1024; // 기본 최대 파일 크기: 10MB
     private int maxBackupIndex = 5; // 기본 백업 파일 수
     private String datePattern = "'_'yyyyMMdd_HH"; // 기본 날짜 패턴
@@ -154,9 +157,21 @@ public class SizeRollingFileAppender extends FileAppender {
         nextRollover = maxFileSize;
     }
 
+    private static String getHourString(Date date) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH");
+        return sdf.format(date);
+    }
+
     private String generateFilename(Date date) {
+        String hourString = getHourString(date);
         String baseFilename = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-        return baseFilename + sdf.format(date) + ".log";
+        String addHourFilename = baseFilename + sdf.format(date);
+        System.out.println("Generated filename: " + addHourFilename);
+        System.out.println(addHourFilename.lastIndexOf(hourString));
+        baseFilename = addHourFilename.substring(0, addHourFilename.lastIndexOf(hourString));
+        baseFilename = baseFilename.substring(0, baseFilename.length() - 1);
+        System.out.println(baseFilename);
+        return baseFilename + ".log";
     }
 
     private String generateBackupFilename(String baseFilename, int index) {
@@ -204,20 +219,39 @@ public class SizeRollingFileAppender extends FileAppender {
         }
 
         @Override
-        protected void computeTime() {}
+        protected void computeTime() {
+        }
+
         @Override
-        protected void computeFields() {}
+        protected void computeFields() {
+        }
+
         @Override
-        public void add(int field, int amount) {}
+        public void add(int field, int amount) {
+        }
+
         @Override
-        public void roll(int field, boolean up) {}
+        public void roll(int field, boolean up) {
+        }
+
         @Override
-        public int getMinimum(int field) { return 0; }
+        public int getMinimum(int field) {
+            return 0;
+        }
+
         @Override
-        public int getMaximum(int field) { return 0; }
+        public int getMaximum(int field) {
+            return 0;
+        }
+
         @Override
-        public int getGreatestMinimum(int field) { return 0; }
+        public int getGreatestMinimum(int field) {
+            return 0;
+        }
+
         @Override
-        public int getLeastMaximum(int field) { return 0; }
+        public int getLeastMaximum(int field) {
+            return 0;
+        }
     }
 }
