@@ -99,14 +99,14 @@ public class SizeRollingFileAppender extends FileAppender {
             closeFile();
 
             // 기존 파일을 백업 파일로 이름 변경
-            System.out.println("before scheduledFilename: " + scheduledFilename);
+//            System.out.println("before scheduledFilename: " + scheduledFilename);
 
             String backupFilename = scheduledFilename.substring(0, scheduledFilename.lastIndexOf('.')) + "_" + getHourString(now) + ".log";
             File existingFile = new File(scheduledFilename);
             File backupFile = new File(backupFilename);
 
-            System.out.println("scheduledFilename: " + scheduledFilename);
-            System.out.println("backupFilename: " + backupFilename);
+//            System.out.println("scheduledFilename: " + scheduledFilename);
+//            System.out.println("backupFilename: " + backupFilename);
 
             boolean renameSucceeded = existingFile.renameTo(backupFile);
             if (!renameSucceeded) {
