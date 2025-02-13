@@ -30,11 +30,11 @@
     </appender>
 
     <!-- CONSOLE Appender -->
-    <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">
-        <!-- 로그 출력 형식 -->
-        <layout class="org.apache.log4j.PatternLayout">
-            <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" />
-        </layout>
-    </appender>
+<!--    <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">-->
+<!--        &lt;!&ndash; 로그 출력 형식 &ndash;&gt;-->
+<!--        <layout class="org.apache.log4j.PatternLayout">-->
+<!--            <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" />-->
+<!--        </layout>-->
+<!--    </appender>-->
 
 </log4j:configuration>

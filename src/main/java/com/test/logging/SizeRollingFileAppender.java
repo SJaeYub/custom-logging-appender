@@ -92,21 +92,16 @@ public class SizeRollingFileAppender extends FileAppender {
     }
 
     private synchronized void rollOverTime() {
-        System.out.println("rolling over time");
         String newFilename = generateFilename(now);
 
         if (!scheduledFilename.equals(newFilename)) {
             closeFile();
 
             // 기존 파일을 백업 파일로 이름 변경
-//            System.out.println("before scheduledFilename: " + scheduledFilename);
-
             String backupFilename = scheduledFilename.substring(0, scheduledFilename.lastIndexOf('.')) + "_" + getHourString(now) + ".log";
             File existingFile = new File(scheduledFilename);
             File backupFile = new File(backupFilename);
 
-//            System.out.println("scheduledFilename: " + scheduledFilename);
-//            System.out.println("backupFilename: " + backupFilename);
 
             boolean renameSucceeded = existingFile.renameTo(backupFile);
             if (!renameSucceeded) {
@@ -190,7 +185,8 @@ public class SizeRollingFileAppender extends FileAppender {
     }
 
     private String generateBackupFilename(String baseFilename, int index) {
-        return baseFilename.substring(0, baseFilename.lastIndexOf('.')) + "." + index + ".log";
+        String hourString = getHourString(now);
+        return baseFilename.substring(0, baseFilename.lastIndexOf('.')) + "_" + hourString + ".log" + "." + index;
     }
 
     private class RollingCalendar extends Calendar {

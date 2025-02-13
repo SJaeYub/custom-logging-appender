@@ -13,7 +13,7 @@ public class LocalServerApplication {
         SpringApplication.run(LocalServerApplication.class, args);
 
         for (int i = 0; i < 100000; i++) {
-            Thread.sleep(10000);
+//            Thread.sleep(10000);
             logger.info("Test log message " + i);
         }
     }
