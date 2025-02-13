@@ -92,11 +92,28 @@ public class SizeRollingFileAppender extends FileAppender {
     }
 
     private synchronized void rollOverTime() {
+        System.out.println("rolling over time");
         String newFilename = generateFilename(now);
+
         if (!scheduledFilename.equals(newFilename)) {
             closeFile();
 
-            // 기존 파일을 백업하지 않고, 새로운 파일을 생성
+            // 기존 파일을 백업 파일로 이름 변경
+            System.out.println("before scheduledFilename: " + scheduledFilename);
+
+            String backupFilename = scheduledFilename.substring(0, scheduledFilename.lastIndexOf('.')) + "_" + getHourString(now) + ".log";
+            File existingFile = new File(scheduledFilename);
+            File backupFile = new File(backupFilename);
+
+            System.out.println("scheduledFilename: " + scheduledFilename);
+            System.out.println("backupFilename: " + backupFilename);
+
+            boolean renameSucceeded = existingFile.renameTo(backupFile);
+            if (!renameSucceeded) {
+                LogLog.warn("Failed to rename [" + scheduledFilename + "] to [" + backupFile.getPath() + "].");
+            }
+
+            // 새로운 파일 생성
             scheduledFilename = newFilename;
             try {
                 setFile(scheduledFilename, false, bufferedIO, bufferSize);
@@ -105,6 +122,7 @@ public class SizeRollingFileAppender extends FileAppender {
             }
         }
     }
+
 
     private synchronized void rollOverSize() {
         if (qw == null) {
@@ -250,5 +268,27 @@ public class SizeRollingFileAppender extends FileAppender {
         public int getLeastMaximum(int field) {
             return 0;
         }
+    }
+
+    public static void main(String[] args) {
+        // Log4j 설정 파일 로드
+//        PropertyConfigurator.configure("log4j.properties");
+
+        // SizeRollingFileAppender 인스턴스 생성
+        SizeRollingFileAppender appender = new SizeRollingFileAppender();
+        appender.setFile("logs/test.log");
+        appender.setMaxFileSize("1KB"); // 즉시 롤오버 테스트를 위해 작은 크기로 설정
+        appender.setDatePattern("'_'yyyyMMdd_HH");
+        appender.activateOptions();
+
+        // rollOverTime() 메서드 강제 호출
+        appender.rollOverTime();
+
+        // 로그 기록
+//        Logger logger = Logger.getLogger(RollOverTest.class);
+//        logger.info("This is a test log message.");
+
+        // rollOverTime() 메서드 다시 호출
+        appender.rollOverTime();
     }
 }
