@@ -166,11 +166,8 @@ public class SizeRollingFileAppender extends FileAppender {
         String hourString = getHourString(date);
         String baseFilename = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
         String addHourFilename = baseFilename + sdf.format(date);
-        System.out.println("Generated filename: " + addHourFilename);
-        System.out.println(addHourFilename.lastIndexOf(hourString));
         baseFilename = addHourFilename.substring(0, addHourFilename.lastIndexOf(hourString));
         baseFilename = baseFilename.substring(0, baseFilename.length() - 1);
-        System.out.println(baseFilename);
         return baseFilename + ".log";
     }
 
